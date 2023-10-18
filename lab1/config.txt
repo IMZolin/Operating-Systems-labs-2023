@@ -1,0 +1,2 @@
+/home/imzolin/University/OS/Operating-Systems-labs-2023/lab1/dir1 5
+/home/imzolin/University/OS/Operating-Systems-labs-2023/lab1/dir2 5
