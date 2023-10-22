@@ -1,6 +1,0 @@
-project(Daemon)
-cmake_minimum_required(VERSION 3.22)
-set(CMAKE_CXX_STANDARD 17)
-add_compile_options(-Wall -Werror)
-include_directories(Daemon)
-add_executable(main ${CMAKE_SOURCE_DIR}/main.cpp)
