@@ -13,7 +13,7 @@ int main(int argc, char *argv[]) {
         std::cout << "Uncorrent count of arguments" << std::endl;
         return 1;
     }
-    Daemon& daemon = Daemon::getInstance();
-    daemon.LoadConfig("config.txt");
+    Daemon& daemon = Daemon::getInstance(config_file);
+    daemon.Run();
     return 0;
 }

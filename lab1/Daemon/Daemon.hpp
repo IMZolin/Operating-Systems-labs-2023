@@ -1,36 +1,36 @@
 #pragma once
 #include <string>
+#include <chrono>
 #include <csignal>
 #include <syslog.h>
 #include <filesystem>
 #include <vector>
 #include <tuple>
 #include <fstream>
+#include <unistd.h>
+#include <sys/stat.h>
 
 using config_entriers = std::vector<std::tuple<std::filesystem::path, std::filesystem::path, std::time_t>>; 
 
 class Daemon{
     public:
+        Daemon() = default;
         Daemon(const Daemon &) = delete;
         Daemon(Daemon &&) = delete;
         ~Daemon() = default;
 
-        static Daemon& getInstance(){
-            static Daemon instance;
-            return instance;
-        }
+        static Daemon &getInstance(const std::string &path_to_config);
         void Run();
-        void Terminate();
-        void LoadConfig(const std::string &config_file);
-        void SignalHandler(int signum);
-        void killPid();
+    protected:
+        static void SignalHandler(int signum);
+        void CloseRunning();
+        void DoFork();
     private:
-        Daemon() = default;
-        void SetConfigPath(const std::string &config_path);
+        Daemon(const std::string &path_to_config);
+        static void LoadConfig(const std::string &config_file);
         static std::string configPath;
-        config_entriers entries;
-        bool isRunning = false;
-        std::string pidFilePath;
+        static config_entriers entries;
+        std::string pidFilePath = std::filesystem::absolute("/run/mydaemon.pid");
         const std::string procDir = "/proc";
         const std::string syslogProcName = "mydaemon";
 };

@@ -1,14 +1,25 @@
 #include "Daemon.hpp"
 
 std::string Daemon::configPath;
+config_entriers Daemon::entries;
+
+Daemon::Daemon(const std::string &path_to_config){
+    configPath = std::filesystem::absolute(path_to_config);
+    Daemon::LoadConfig(configPath);
+}
+
+Daemon &Daemon::getInstance(const std::string &path_to_config){
+    static Daemon daemon(path_to_config);
+    return daemon;
+}
 
 void Daemon::Run(){
+    CloseRunning();
+    DoFork();
     syslog(LOG_NOTICE, "Daemon started");
     std::vector<std::time_t> last_modified_time(entries.size(), 0);
-    isRunning = true;
-    while(isRunning){
+    while(true){
         syslog(LOG_NOTICE, "Daemon running");
-        LoadConfig(configPath);
         const std::vector<std::tuple<std::filesystem::path, std::filesystem::path, std::time_t>> & copy_entries = entries;
         for (size_t idx = 0; idx < copy_entries.size(); ++idx) {
             std::time_t cur_time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
@@ -25,37 +36,56 @@ void Daemon::Run(){
     }
 }
 
-void Daemon::Terminate(){
-    syslog(LOG_NOTICE, "Daemon terminated");
-    isRunning = false;
-    closelog();
-}
-
 void Daemon::SignalHandler(int signum){
     switch(signum){
-        case SIGINT:
-            LoadConfig(configPath);
+        case SIGHUP:
+            Daemon::LoadConfig(configPath);
         case SIGTERM:
-            Terminate();
-            break;
+            syslog(LOG_NOTICE, "Daemon terminated");
+            closelog();
+            exit(EXIT_SUCCESS);
         default:
             syslog(LOG_INFO, "Unknown signal found");
             break;
     }
 }
 
-void Daemon::SetConfigPath(const std::string &config_path){
-    
-    if (std::filesystem::exists(config_path)){
-        configPath = std::filesystem::absolute(config_path);
-    }
-    else{
-        throw std::runtime_error("File does not exist");
-    }     
+void Daemon::CloseRunning(){
+    int pid;
+    std::ifstream f(pidFilePath);
+    f >> pid;
+    if (std::filesystem::exists(procDir + "/" + std::to_string(pid)))
+        kill(pid, SIGTERM);
+}
+
+void Daemon::DoFork(){
+    pid_t pid = fork();
+    if (pid != 0)
+        exit(EXIT_FAILURE);
+
+    if (setsid() < 0)
+        exit(EXIT_FAILURE);
+
+    std::signal(SIGHUP, SignalHandler);
+    std::signal(SIGTERM, SignalHandler);
+
+    pid = fork();
+    if (pid != 0)
+        exit(EXIT_FAILURE);
+
+    umask(0);
+    if (chdir("/") != 0)
+        exit(EXIT_FAILURE);
+
+    for (long x = sysconf(_SC_OPEN_MAX); x >= 0; --x)
+        close(x);
+    openlog(syslogProcName.c_str(), LOG_PID, LOG_DAEMON);
+
+    std::ofstream f(pidFilePath, std::ios_base::trunc);
+    f << getpid();
 }
 
 void Daemon::LoadConfig(const std::string &config_file){
-    SetConfigPath(config_file);
     entries.clear();
     std::ifstream f(configPath);
         std::string dir1, dir2, time;
