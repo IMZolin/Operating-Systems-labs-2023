@@ -4,8 +4,16 @@ std::string Daemon::configPath;
 config_entriers Daemon::entries;
 
 Daemon::Daemon(const std::string &path_to_config){
-    configPath = std::filesystem::absolute(path_to_config);
-    Daemon::LoadConfig(configPath);
+    if (std::filesystem::exists(path_to_config)){
+        configPath = std::filesystem::absolute(path_to_config);
+        Daemon::LoadConfig(configPath);
+    }
+    else{
+        openlog(syslogProcName.c_str(), LOG_PID, LOG_DAEMON);
+        syslog(LOG_ERR, "Config file does not exist. Daemon terminated");
+        closelog();
+        exit(EXIT_FAILURE);
+    }
 }
 
 Daemon &Daemon::getInstance(const std::string &path_to_config){
@@ -13,22 +21,23 @@ Daemon &Daemon::getInstance(const std::string &path_to_config){
     return daemon;
 }
 
-void Daemon::Run(){
+void Daemon::Run() const{
     CloseRunning();
     DoFork();
     syslog(LOG_NOTICE, "Daemon started");
     std::vector<std::time_t> last_modified_time(entries.size(), 0);
     while(true){
-        syslog(LOG_NOTICE, "Daemon running");
         const std::vector<std::tuple<std::filesystem::path, std::filesystem::path, std::time_t>> & copy_entries = entries;
         for (size_t idx = 0; idx < copy_entries.size(); ++idx) {
             std::time_t cur_time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 
             if (cur_time - last_modified_time[idx] < std::get<2>(copy_entries[idx])) {
+                syslog(LOG_NOTICE, "Skipped entry: %s", std::get<0>(copy_entries[idx]).c_str());
                 continue;
             }
             for (const auto &file : std::filesystem::directory_iterator(std::get<0>(copy_entries[idx]))) {
                 std::filesystem::rename(file.path(), std::get<1>(copy_entries[idx]) / file.path().filename());
+                syslog(LOG_NOTICE, "Renamed: %s to %s", file.path().c_str(), (std::get<1>(copy_entries[idx]) / file.path().filename()).c_str());
             }
             cur_time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
             last_modified_time[idx] = cur_time;
@@ -50,7 +59,7 @@ void Daemon::SignalHandler(int signum){
     }
 }
 
-void Daemon::CloseRunning(){
+void Daemon::CloseRunning() const{
     int pid;
     std::ifstream f(pidFilePath);
     f >> pid;
@@ -58,7 +67,7 @@ void Daemon::CloseRunning(){
         kill(pid, SIGTERM);
 }
 
-void Daemon::DoFork(){
+void Daemon::DoFork() const{
     pid_t pid = fork();
     if (pid != 0)
         exit(EXIT_FAILURE);
@@ -92,5 +101,4 @@ void Daemon::LoadConfig(const std::string &config_file){
         while (f >> dir1 >> dir2 >> time) {
             entries.push_back(std::make_tuple(std::filesystem::path(dir1), std::filesystem::path(dir2), std::time_t(std::stoi(time))));
         }
-    syslog(LOG_NOTICE, "The file has been read");
 }
