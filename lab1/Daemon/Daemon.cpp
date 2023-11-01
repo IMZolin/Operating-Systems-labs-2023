@@ -32,12 +32,10 @@ void Daemon::Run() const{
             std::time_t cur_time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 
             if (cur_time - last_modified_time[idx] < std::get<2>(copy_entries[idx])) {
-                syslog(LOG_NOTICE, "Skipped entry: %s", std::get<0>(copy_entries[idx]).c_str());
                 continue;
             }
             for (const auto &file : std::filesystem::directory_iterator(std::get<0>(copy_entries[idx]))) {
                 std::filesystem::rename(file.path(), std::get<1>(copy_entries[idx]) / file.path().filename());
-                syslog(LOG_NOTICE, "Renamed: %s to %s", file.path().c_str(), (std::get<1>(copy_entries[idx]) / file.path().filename()).c_str());
             }
             cur_time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
             last_modified_time[idx] = cur_time;
@@ -49,6 +47,7 @@ void Daemon::SignalHandler(int signum){
     switch(signum){
         case SIGHUP:
             Daemon::LoadConfig(configPath);
+            break;
         case SIGTERM:
             syslog(LOG_NOTICE, "Daemon terminated");
             closelog();
