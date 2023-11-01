@@ -10,7 +10,7 @@ Daemon::Daemon(const std::string &path_to_config){
     }
     else{
         openlog(syslogProcName.c_str(), LOG_PID, LOG_DAEMON);
-        syslog(LOG_ERR, "Config file does not exist. Daemon terminated");
+        syslog(LOG_NOTICE, "Config file does not exist. Daemon terminated");
         closelog();
         exit(EXIT_FAILURE);
     }
