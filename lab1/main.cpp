@@ -4,7 +4,7 @@
 int main(int argc, char *argv[]) {
     std::string config_file;
     if (argc == 1){
-        config_file = "config.txt";
+        config_file = "config.conf";
     }
     else if (argc == 2){
         config_file = argv[1];

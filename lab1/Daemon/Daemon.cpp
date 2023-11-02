@@ -28,25 +28,26 @@ void Daemon::Run() const{
     std::vector<std::time_t> last_modified_time(entries.size(), 0);
     while(true){
         const std::vector<std::tuple<std::filesystem::path, std::filesystem::path, std::time_t>> & copy_entries = entries;
-        try {
-            for (size_t idx = 0; idx < copy_entries.size(); ++idx) {
-                std::time_t cur_time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+        for (size_t idx = 0; idx < copy_entries.size(); ++idx) {
+            std::time_t cur_time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 
-                if (cur_time - last_modified_time[idx] < std::get<2>(copy_entries[idx])) {
-                    continue;
-                }
+            if (cur_time - last_modified_time[idx] < std::get<2>(copy_entries[idx])) {
+                continue;
+            }
+            try{
                 for (const auto &file : std::filesystem::directory_iterator(std::get<0>(copy_entries[idx]))) {
                     std::filesystem::rename(file.path(), std::get<1>(copy_entries[idx]) / file.path().filename());
                 }
-                cur_time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-                last_modified_time[idx] = cur_time;
             }
+            catch (const std::runtime_error& e) {
+                syslog(LOG_NOTICE, "Config has invalid string");
+                std::cerr << e.what() << std::endl;
+                continue;
+            }
+            
+            cur_time = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+            last_modified_time[idx] = cur_time;
         }
-        catch (const std::runtime_error& e) {
-            std::cerr << e.what() << std::endl;
-            break;
-        }
-        
     }
 }
 
