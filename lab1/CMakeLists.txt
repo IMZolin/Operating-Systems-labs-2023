@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.22)
+project(my_daemon)
+set(CMAKE_CXX_STANDARD 17)
+add_compile_options(-Wall -Werror)
+include_directories(${CMAKE_SOURCE_DIR}/Daemon)
+add_library(Daemon ${CMAKE_SOURCE_DIR}/Daemon/Daemon.hpp ${CMAKE_SOURCE_DIR}/Daemon/Daemon.cpp)
+add_executable(main ${CMAKE_SOURCE_DIR}/main.cpp)
+target_link_libraries(main Daemon)
