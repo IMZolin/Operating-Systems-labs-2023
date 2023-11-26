@@ -16,12 +16,12 @@ find_library (LIBRT rt)
 set(CLIENT client)
 set(HOST host)
 set(CONNECTION connections)
-
+set(UTILS utils)
 
 foreach(CONN mq fifo sock)
-    add_executable(host_${CONN} ${HOST}/hostHandler.hpp ${HOST}/hostHandler.hpp ${HOST}/host.cpp
+    add_executable(host_${CONN} ${HOST}/hostHandler.cpp ${HOST}/hostHandler.h ${HOST}/host.cpp
             ${CLIENT}/client.cpp ${CLIENT}/client.h
             ${UTILS}/configuration.h ${UTILS}/message.h
             ${CONNECTION}/conn.h ${CONNECTION}/conn_${CONN}.cpp ${CONNECTION}/conn_${CONN}.h)
-    target_link_libraries(host_${CONN} PUBLIC rt pthread Qt${QT_VERSION_MAJOR}::Core Qt${QT_VERSION_MAJOR}::Quick)
+    target_link_libraries(host_${CONN} PUBLIC rt pthread)
 endforeach(CONN mq fifo sock)
