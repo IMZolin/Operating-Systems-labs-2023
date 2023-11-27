@@ -28,7 +28,7 @@ bool MessageQueue::open(pid_t pid, bool isHost)
 
     if (descriptor < 0)
     {
-        syslog(LOG_ERR, "ERROR: Can't open message queue");
+        syslog(LOG_ERR, "[ERROR]: Can't open message queue");
         return false;
     }
 
@@ -39,7 +39,7 @@ bool MessageQueue::read(Message &msg) const
 {
     if (mq_receive(descriptor, (char *)(&msg), sizeof(Message), nullptr) < 0)
     {
-        syslog(LOG_ERR, "ERROR: Can't read message");
+        syslog(LOG_ERR, "[ERROR]: Can't read message");
         return false;
     }
     return true;
@@ -49,7 +49,7 @@ bool MessageQueue::write(const Message &msg)
 {
     if (mq_send(descriptor, (char *)(&msg), sizeof(Message), 0) < 0)
     {
-        syslog(LOG_ERR, "ERROR: Can't write message");
+        syslog(LOG_ERR, "[ERROR]: Can't write message");
         return false;
     }
     return true;
@@ -59,7 +59,7 @@ bool MessageQueue::close()
 {
     if (isHost && mq_close(descriptor) < 0)
     {
-        syslog(LOG_ERR, "ERROR: Can't close connection");
+        syslog(LOG_ERR, "[ERROR]: Can't close connection");
         return false;
     }
     return true;

@@ -1,15 +1,10 @@
 cmake_minimum_required(VERSION 3.22)
 project(host_client VERSION 0.1 LANGUAGES CXX)
 
-set(CMAKE_INCLUDE_CURRENT_DIR ON)
-
-set(CMAKE_AUTOUIC ON)
-set(CMAKE_AUTOMOC ON)
-set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_compile_options(-Wall -Werror -DCMAKE_EXE_LINKER_FLAGS=-latomic)
+add_compile_options(-Wall -Werror)
 find_package (Threads)
 find_library (LIBRT rt)
 
@@ -23,5 +18,5 @@ foreach(CONN mq fifo sock)
             ${CLIENT}/client.cpp ${CLIENT}/client.h
             ${UTILS}/configuration.h ${UTILS}/message.h
             ${CONNECTION}/conn.h ${CONNECTION}/conn_${CONN}.cpp ${CONNECTION}/conn_${CONN}.h)
-    target_link_libraries(host_${CONN} PUBLIC rt pthread)
+    target_link_libraries(host_${CONN} PUBLIC pthread rt)
 endforeach(CONN mq fifo sock)

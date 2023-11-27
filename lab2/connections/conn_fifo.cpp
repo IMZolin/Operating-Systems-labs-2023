@@ -19,14 +19,14 @@ bool Fifo::open(pid_t pid, bool isHost)
     {
         if (mkfifo(name.c_str(), S_IRWXU | S_IRWXG | S_IRWXO) < 0)
         {
-            syslog(LOG_ERR, "ERROR: Can't create fifo file");
+            syslog(LOG_ERR, "[ERROR]: Can't create fifo file");
             return false;
         }
     }
     descriptor = ::open(name.c_str(), O_RDWR);
     if (descriptor < 0)
     {
-        syslog(LOG_ERR, "ERROR: Can't open fifo file");
+        syslog(LOG_ERR, "[ERROR]: Can't open fifo file");
         return false;
     }
 
@@ -37,7 +37,7 @@ bool Fifo::read(Message &msg) const
 {
     if (::read(descriptor, &msg, sizeof(Message)) < 0)
     {
-        syslog(LOG_ERR, "ERROR: Can't read message");
+        syslog(LOG_ERR, "[ERROR]: Can't read message");
         return false;
     }
     return true;
@@ -47,7 +47,7 @@ bool Fifo::write(const Message &msg)
 {
     if (::write(descriptor, &msg, sizeof(Message)) < 0)
     {
-        syslog(LOG_ERR, "ERROR: Can't write message");
+        syslog(LOG_ERR, "[ERROR]: Can't write message");
         return false;
     }
     return true;
@@ -57,14 +57,14 @@ bool Fifo::close()
 {
     if (::close(descriptor) < 0)
     {
-        syslog(LOG_ERR, "ERROR: Can't close file");
+        syslog(LOG_ERR, "[ERROR]: Can't close file");
         return false;
     }
     if (isHost)
     {
         if (unlink(name.c_str()) < 0)
         {
-            syslog(LOG_ERR, "ERROR: Can't unlink file");
+            syslog(LOG_ERR, "[ERROR]: Can't unlink file");
             return false;
         }
     }
