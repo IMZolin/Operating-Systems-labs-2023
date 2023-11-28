@@ -1,12 +1,11 @@
-#include "client.h"
-#include "utils/configuration.h"
-
 #include <csignal>
 #include <sys/syslog.h>
 #include <time.h>
 #include <random>
 #include <iostream>
 #include <cstring>
+#include "client.h"
+#include "utils/configuration.h"
 
 Client &Client::getInstance()
 {

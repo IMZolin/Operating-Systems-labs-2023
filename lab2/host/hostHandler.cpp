@@ -3,6 +3,8 @@
 #include <fcntl.h>
 #include <cstring>
 #include <iostream>
+#include <time.h>
+#include <random>
 #include "hostHandler.h"
 #include "utils/configuration.h"
 #include "client/client.h"
@@ -31,7 +33,7 @@ Host::~Host()
     kill(clientPid, SIGTERM);
     if (!conn->close())
     {
-        syslog(LOG_ERR, "ERROR: Can't close connection");
+        syslog(LOG_ERR, "[ERROR]: Can't close connection");
     }
     if (semHost != SEM_FAILED)
     {
@@ -112,6 +114,7 @@ void Host::run()
                 syslog(LOG_ERR, "[ERROR]: Can't get message from goat");
                 return;
             }
+            getHostNum();
             clientMsg.clientState = updateClientState(hostMessage.load().thrownNumber, clientMsg);
             if (!sendHostMessage({hostMessage.load().thrownNumber, clientMsg.clientState}))
             {
@@ -133,6 +136,49 @@ void Host::run()
         }
     }
     kill(clientPid, SIGTERM);
+}
+
+void Host::getHostNum() {
+    std::cout << "Input wolf number:" << std::endl;
+    std::string word;
+    size_t res = 0;
+    do {
+        fd_set fds;
+        int console = fileno(stdin);
+        FD_ZERO(&fds);
+        FD_SET(console, &fds);
+        struct timeval timeout;
+        timeout.tv_sec = 3; 
+        timeout.tv_usec = 0;
+        int ready = select(console + 1, &fds, nullptr, nullptr, &timeout);
+    
+        if (ready == -1) {
+            std::cerr << "Error in select()\n";
+        }
+        else if (ready == 0) {
+            std::random_device rd;
+            std::mt19937 mt(rd());
+            std::uniform_int_distribution<int> dist(1, 100);
+            std::uniform_int_distribution<int> dist(Configuration::Host::MIN_NUMBER, Configuration::Host::MAX_NUMBER);
+            res = dist(mt);
+            std::cout << res << std::endl;
+        } 
+        else {
+            if (FD_ISSET(console, &fds)) {
+                char buffer[256];
+                read(console, buffer, sizeof(buffer));
+                try {
+                    res = std::atoi(buffer);
+                } catch (std::exception &e) {
+                    std::cout << "Try again" << std::endl;
+                }
+                if (res < Configuration::Host::MIN_NUMBER || res > Configuration::Host::MAX_NUMBER) {
+                    std::cout << "Number must be between 1 and 100" << std::endl;
+                }
+            }
+        }
+    } while (res < Configuration::Host::MIN_NUMBER || res > Configuration::Host::MAX_NUMBER);
+    getNewHostMessage(res);
 }
 
 void Host::signalHandle(int sig, siginfo_t *sigInfo, void *ptr)

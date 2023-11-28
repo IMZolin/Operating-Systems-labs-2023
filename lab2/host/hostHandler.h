@@ -25,6 +25,7 @@ class Host{
         bool stop();
         bool getClientMessage(Message &msg);
         bool sendHostMessage(const Message &msg);
+        void getHostNum();
         CLIENT_STATE updateClientState(const size_t &hostNum, const Message& clientMessage);
         bool checkRun(CLIENT_STATE clientState);
         static void signalHandle(int sig, siginfo_t *sigInfo, void *ptr);
