@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <iostream>
 #include "conn_sock.h"
-#include "utils/configuration.h"
+#include "../utils/configuration.h"
 
 std::unique_ptr<Connection> Connection::create()
 {

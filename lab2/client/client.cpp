@@ -5,7 +5,7 @@
 #include <iostream>
 #include <cstring>
 #include "client.h"
-#include "utils/configuration.h"
+#include "../utils/configuration.h"
 
 Client &Client::getInstance()
 {
@@ -85,6 +85,7 @@ void Client::run()
 {
     syslog(LOG_INFO, "[INFO]: Client start running");
     unsigned short clientNumber = getClientNumber(CLIENT_STATE::ALIVE);
+    std::cout << "Goat number " + std::to_string(clientNumber) << std::endl;
     if (!sendClientMessage({clientNumber, CLIENT_STATE::ALIVE}))
     {
         syslog(LOG_ERR, "[ERROR]: Can't send client message");
@@ -159,7 +160,14 @@ bool Client::stopClient()
     if (sem_timedwait(clientSemaphore, &ts) == -1)
     {
         std::cout << strerror(errno) << std::endl;
-        syslog(LOG_ERR, "[ERROR]: Client semaphore can't wait");
+        if (errno == ETIMEDOUT)
+        {
+            syslog(LOG_ERR, "[ERROR]: Client semaphore timed out");
+        }
+        else
+        {
+            syslog(LOG_ERR, "[ERROR]: Client semaphore error: %s", strerror(errno));
+        }
         return false;
     }
     return true;

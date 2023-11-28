@@ -6,8 +6,8 @@
 #include <time.h>
 #include <random>
 #include "hostHandler.h"
-#include "utils/configuration.h"
-#include "client/client.h"
+#include "../utils/configuration.h"
+#include "../client/client.h"
 
 Host &Host::getInstance()
 {
@@ -19,7 +19,7 @@ Host::Host()
 {
     conn = Connection::create();
     hostPid = getpid();
-    openlog("HostAndClient", LOG_NDELAY | LOG_PID, LOG_USER);
+    openlog("WolfAndGoat", LOG_NDELAY | LOG_PID, LOG_USER);
     struct sigaction sig;
     memset(&sig, 0, sizeof(sig));
     sig.sa_flags = SA_SIGINFO;
@@ -61,6 +61,7 @@ bool Host::init()
     semHost = sem_open(Configuration::HOST_SEMAPHORE_NAME.c_str(), O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO, 0);
     if (semHost == SEM_FAILED)
     {
+        std::cout << "ERROR: Can't open host semaphore, errno = " << strerror(errno);
         syslog(LOG_ERR, "[ERROR]: Host semaphore not created");
         return false;
     }
@@ -77,6 +78,7 @@ bool Host::init()
         clientPid = getpid();
         if (Client::getInstance().init(hostPid))
         {
+            getHostNum();
             Client::getInstance().run();
         }
         else
@@ -114,7 +116,6 @@ void Host::run()
                 syslog(LOG_ERR, "[ERROR]: Can't get message from goat");
                 return;
             }
-            getHostNum();
             clientMsg.clientState = updateClientState(hostMessage.load().thrownNumber, clientMsg);
             if (!sendHostMessage({hostMessage.load().thrownNumber, clientMsg.clientState}))
             {
@@ -138,44 +139,29 @@ void Host::run()
     kill(clientPid, SIGTERM);
 }
 
-void Host::getHostNum() {
+void Host::getHostNum()
+{
     std::cout << "Input wolf number:" << std::endl;
-    std::string word;
+    std::string input;
     size_t res = 0;
-    do {
-        fd_set fds;
-        int console = fileno(stdin);
-        FD_ZERO(&fds);
-        FD_SET(console, &fds);
-        struct timeval timeout;
-        timeout.tv_sec = 3; 
-        timeout.tv_usec = 0;
-        int ready = select(console + 1, &fds, nullptr, nullptr, &timeout);
-    
-        if (ready == -1) {
-            std::cerr << "Error in select()\n";
-        }
-        else if (ready == 0) {
-            std::random_device rd;
-            std::mt19937 mt(rd());
-            std::uniform_int_distribution<int> dist(1, 100);
-            std::uniform_int_distribution<int> dist(Configuration::Host::MIN_NUMBER, Configuration::Host::MAX_NUMBER);
-            res = dist(mt);
-            std::cout << res << std::endl;
-        } 
-        else {
-            if (FD_ISSET(console, &fds)) {
-                char buffer[256];
-                read(console, buffer, sizeof(buffer));
-                try {
-                    res = std::atoi(buffer);
-                } catch (std::exception &e) {
-                    std::cout << "Try again" << std::endl;
-                }
-                if (res < Configuration::Host::MIN_NUMBER || res > Configuration::Host::MAX_NUMBER) {
-                    std::cout << "Number must be between 1 and 100" << std::endl;
-                }
+    do
+    {
+        std::getline(std::cin, input);
+        try
+        {
+            res = std::stoi(input);
+            if (res < Configuration::Host::MIN_NUMBER || res > Configuration::Host::MAX_NUMBER)
+            {
+                std::cout << "Number must be between 1 and 100" << std::endl;
             }
+        }
+        catch (std::invalid_argument const &e)
+        {
+            std::cout << "Invalid input. Try again." << std::endl;
+        }
+        catch (std::out_of_range const &e)
+        {
+            std::cout << "Input out of range. Try again." << std::endl;
         }
     } while (res < Configuration::Host::MIN_NUMBER || res > Configuration::Host::MAX_NUMBER);
     getNewHostMessage(res);

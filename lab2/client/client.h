@@ -1,7 +1,7 @@
 #pragma once
 
 #include <semaphore.h>
-#include "connections/conn.h"
+#include "../connections/conn.h"
 
 class Client
 {

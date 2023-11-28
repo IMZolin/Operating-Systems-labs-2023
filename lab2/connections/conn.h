@@ -1,8 +1,7 @@
 #pragma once
 
 #include "sys/types.h"
-#include "utils/message.h"
-
+#include "../utils/message.h"
 #include <memory>
 
 class Connection
