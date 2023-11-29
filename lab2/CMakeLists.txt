@@ -1,22 +1,24 @@
-cmake_minimum_required(VERSION 3.22)
+cmake_minimum_required(VERSION 3.14)
+
 project(WolfAndGoats VERSION 0.1 LANGUAGES CXX)
-
+set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
 add_compile_options(-Wall -Werror)
-find_package (Threads)
+
 find_library (LIBRT rt)
+find_package (Threads)
 
-set(CLIENT client)
-set(HOST host)
-set(CONNECTION connections)
-set(UTILS utils)
+file(GLOB CONNS conn/conn_*.cpp)
+file(GLOB CLIENT client/*.cpp client/*.h)
+file(GLOB HOST host/*.cpp host/*.h)
+file(GLOB UTILS  utils/*.h)
 
-foreach(CONN mq fifo sock)
-    add_executable(host_${CONN} ${HOST}/hostHandler.cpp ${HOST}/hostHandler.h ${HOST}/host.cpp
-            ${CLIENT}/client.cpp ${CLIENT}/client.h
-            ${UTILS}/configuration.h ${UTILS}/message.h
-            ${CONNECTION}/conn.h ${CONNECTION}/conn_${CONN}.cpp ${CONNECTION}/conn_${CONN}.h)
-    target_link_libraries(host_${CONN} PUBLIC rt pthread)
-endforeach(CONN mq fifo sock)
+foreach(PATH_TO_CONN ${CONNS})
+    get_filename_component(FILE_NAME ${PATH_TO_CONN} NAME_WLE )
+    string(REGEX REPLACE "conn_" "" CONN_NAME ${FILE_NAME})
+    
+    add_executable(host_${CONN_NAME} ${HOST} ${CLIENT} ${UTILS}
+    conn/conn_${CONN_NAME}.cpp)
+       
+    target_link_libraries(host_${CONN_NAME} PUBLIC pthread rt)
+endforeach()

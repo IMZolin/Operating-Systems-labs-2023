@@ -16,8 +16,8 @@ public:
     MessageQueue() = default;
     ~MessageQueue() = default;
 
-    bool open(pid_t pid, bool isHost) final;
-    bool read(Message &msg) const final;
-    bool write(const Message &msg) final;
+    bool open(int pid, bool isHost) final;
+    bool read(void *buf, size_t count) const final;
+    bool write(void *buf, size_t count) final;
     bool close() final;
 };

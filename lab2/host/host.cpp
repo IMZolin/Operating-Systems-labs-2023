@@ -1,21 +1,16 @@
+#include <cstring>
+#include <iostream>
+
 #include "hostHandler.h"
 
-
-#include <iostream>
-#include <sys/syslog.h>
-
-int main()
-{
-    if (Host::getInstance().init())
-    {
-        std::thread hostThread(&Host::run, &Host::getInstance());
-        hostThread.join();
+int main( int argc, char **argv ) {
+    Host &host = Host::getInstance();
+    if (host.init()) {
+        host.run();
+    } else {
+        std::cout << "ERROR: errno = " << strerror(errno) << std::endl;
+        return 1;
     }
-    else
-    {
-        std::cout << "ERROR: Can't initialize host" << std::endl;
-        syslog(LOG_ERR, "[ERROR]: Can't initialize host");
-    }
-    syslog(LOG_INFO, "[INFO]: Game over!");
+
     return 0;
 }

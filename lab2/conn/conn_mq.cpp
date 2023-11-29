@@ -1,6 +1,11 @@
-#include <sys/syslog.h>
+#include <fcntl.h>
+#include <mqueue.h>
 #include <iostream>
-#include <sys/un.h>
+#include <cstring>
+#include <sstream>
+#include <sys/syslog.h>
+#include <unistd.h>
+
 #include "conn_mq.h"
 
 std::unique_ptr<Connection> Connection::create()
@@ -8,7 +13,7 @@ std::unique_ptr<Connection> Connection::create()
     return std::make_unique<MessageQueue>();
 }
 
-bool MessageQueue::open(pid_t pid, bool isHost)
+bool MessageQueue::open(int pid, bool isHost) 
 {
     this->isHost = isHost;
     std::string name = std::string(MQ_ROUTE + std::to_string(pid));
@@ -35,20 +40,17 @@ bool MessageQueue::open(pid_t pid, bool isHost)
     return true;
 }
 
-bool MessageQueue::read(Message &msg) const
+bool MessageQueue::read(void *buf, size_t count) const
 {
-    if (mq_receive(descriptor, (char *)(&msg), sizeof(Message), nullptr) < 0)
-    {
+    if (mq_receive(descriptor, (char *)buf, count, nullptr) == -1) {
         syslog(LOG_ERR, "[ERROR]: Can't read message");
         return false;
     }
     return true;
 }
 
-bool MessageQueue::write(const Message &msg)
-{
-    if (mq_send(descriptor, (char *)(&msg), sizeof(Message), 0) < 0)
-    {
+bool MessageQueue::write(void *buf, size_t count) {
+    if (mq_send(descriptor, (char *)buf, count, 0) == -1) {
         syslog(LOG_ERR, "[ERROR]: Can't write message");
         return false;
     }

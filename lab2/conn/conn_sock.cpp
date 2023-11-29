@@ -11,7 +11,7 @@ std::unique_ptr<Connection> Connection::create()
     return std::make_unique<Socket>();
 }
 
-bool Socket::open(pid_t pid, bool isHost)
+bool Socket::open(int pid, bool isHost)
 {
     struct sockaddr_un addr;
     this->isHost = isHost;
@@ -28,17 +28,14 @@ bool Socket::open(pid_t pid, bool isHost)
             return false;
         }
 
-        if (bind(hostSocket, (struct sockaddr *)&addr, sizeof(addr)) < 0)
-        {
-            syslog(LOG_ERR, "[ERROR]: Can't bind host socket");
-            return false;
-        }
+        bind(hostSocket, (struct sockaddr *)&addr, sizeof(addr));
+        listen(hostSocket, MAX_CLIENT_NUM);
 
-        if ((listen(hostSocket, MAX_CLIENT_NUM)) < 0)
-        {
-            syslog(LOG_ERR, "[ERROR]: Can't listen connection");
-            return false;
-        }
+        // if ((listen(hostSocket, MAX_CLIENT_NUM)) < 0)
+        // {
+        //     syslog(LOG_ERR, "[ERROR]: Can't listen connection");
+        //     return false;
+        // }
 
         if ((clientSocket = accept(hostSocket, NULL, NULL)) < 0)
         {
@@ -64,25 +61,24 @@ bool Socket::open(pid_t pid, bool isHost)
     return true;
 }
 
-bool Socket::read(Message &msg) const
+bool Socket::read(void *buf, size_t count) const
 {
-    if (recv(clientSocket, &msg, sizeof(Message), 0) < 0)
+    if (recv(clientSocket, buf, count, 0) < 0)
     {
         syslog(LOG_ERR, "[ERROR]: Can't read from socket");
         return false;
     }
-
     return true;
 }
 
-bool Socket::write(const Message &msg)
+bool Socket::write(void *buf, size_t count)
 {
-    if (send(clientSocket, &msg, sizeof(Message), MSG_NOSIGNAL) < 0)
+    Message *msg = (Message *) buf;
+    if (send(clientSocket, msg, count, MSG_NOSIGNAL) < 0)
     {
         syslog(LOG_ERR, "[ERROR]: Can't write to socket");
         return false;
     }
-
     return true;
 }
 
@@ -95,13 +91,11 @@ bool Socket::close()
             syslog(LOG_ERR, "[ERROR]: Can't close client socket");
             return false;
         }
-
         if (::close(hostSocket) < 0)
         {
             syslog(LOG_ERR, "[ERROR]: Can't close host socket");
             return false;
         }
-
         if (unlink(name.c_str()) < 0)
         {
             syslog(LOG_ERR, "[ERROR]: Can't unlink socket");
@@ -116,6 +110,5 @@ bool Socket::close()
             return false;
         }
     }
-
     return true;
 }

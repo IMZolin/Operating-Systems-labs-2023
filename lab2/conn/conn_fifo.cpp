@@ -1,9 +1,11 @@
-#include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/syslog.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <sys/un.h>
+#include <string>
+#include <cstring>
+#include <iostream>
+
 #include "conn_fifo.h"
 
 std::unique_ptr<Connection> Connection::create()
@@ -11,7 +13,7 @@ std::unique_ptr<Connection> Connection::create()
     return std::make_unique<Fifo>();
 }
 
-bool Fifo::open(pid_t pid, bool isHost)
+bool Fifo::open(int pid, bool isHost)
 {
     name = std::string(FIFO_ROUTE + std::to_string(pid));
     this->isHost = isHost;
@@ -33,9 +35,9 @@ bool Fifo::open(pid_t pid, bool isHost)
     return true;
 }
 
-bool Fifo::read(Message &msg) const
+bool Fifo::read(void *buf, size_t count) const
 {
-    if (::read(descriptor, &msg, sizeof(Message)) < 0)
+    if (::read(descriptor, buf, count) < 0)
     {
         syslog(LOG_ERR, "[ERROR]: Can't read message");
         return false;
@@ -43,9 +45,10 @@ bool Fifo::read(Message &msg) const
     return true;
 }
 
-bool Fifo::write(const Message &msg)
+bool Fifo::write(void *buf, size_t count)
 {
-    if (::write(descriptor, &msg, sizeof(Message)) < 0)
+    Message *msg = (Message *) buf;
+    if (::write(descriptor, msg, count) < 0)
     {
         syslog(LOG_ERR, "[ERROR]: Can't write message");
         return false;

@@ -1,52 +1,25 @@
-#include <csignal>
-#include <sys/syslog.h>
-#include <time.h>
-#include <random>
 #include <iostream>
-#include <cstring>
-#include "client.h"
-#include "../utils/configuration.h"
+#include <random>
 
-Client &Client::getInstance()
-{
+#include "client.h"
+
+Client &Client::getInstance() {
     static Client instance;
     return instance;
 }
 
-Client::Client()
+Client::Client() : hostSemaphore(nullptr), clientSemaphore(nullptr)
 {
     conn = Connection::create();
-    signal(SIGTERM, signalHandler);
-    signal(SIGUSR1, signalHandler);
-    signal(SIGINT, signalHandler);
 }
 
-Client::~Client()
-{
-    if (clientSemaphore != SEM_FAILED)
-    {
-        sem_close(clientSemaphore);
-    }
-    if (hostSemaphore != SEM_FAILED)
-    {
-        sem_close(hostSemaphore);
-    }
-    if (!conn->close())
-    {
-        syslog(LOG_ERR, "[ERROR]: Can't close connection");
-    }
-    kill(hostPid, SIGTERM);
-}
-
-bool Client::init(const pid_t &hostPid)
-{
+bool Client::init(sem_t *hostSem, sem_t *clientSem) {
     syslog(LOG_INFO, "[INFO]: Client initialization");
-    this->hostPid = hostPid;
-    if (!conn->open(hostPid, false))
-    {
-        syslog(LOG_ERR, "[ERROR]: Can't open client connection");
+    if (hostSem == nullptr || clientSem == nullptr)
         return false;
-    }
+    hostSemaphore = hostSem;
+    clientSemaphore = clientSem;
+    sem_wait(clientSemaphore);
     if ((hostSemaphore = sem_open(Configuration::HOST_SEMAPHORE_NAME.c_str(), 0)) == SEM_FAILED)
     {
         syslog(LOG_ERR, "[ERROR]: Can't connect to host semaphore");
@@ -57,119 +30,51 @@ bool Client::init(const pid_t &hostPid)
         syslog(LOG_ERR, "[ERROR]: Can't connect to client semaphore");
         return false;
     }
-    isRun = true;
     syslog(LOG_INFO, "[INFO]: Client initialized");
-    return true;
+    return conn->open(0, false);
 }
 
-void Client::signalHandler(int signal)
-{
-    switch (signal)
-    {
-    case SIGTERM:
-        Client::getInstance().isRun = false;
-        exit(EXIT_SUCCESS);
-    case SIGINT:
-        syslog(LOG_INFO, "[INFO]: Receive delete client request");
-        exit(EXIT_SUCCESS);
-    case SIGUSR1:
-        syslog(LOG_INFO, "[INFO]: Client end game. Game over!");
-        kill(Client::getInstance().hostPid, SIGTERM);
-        exit(EXIT_SUCCESS);
-    default:
-        syslog(LOG_INFO, "[INFO]: Unknown command");
-    }
-}
-
-void Client::run()
-{
+void Client::run() {
     syslog(LOG_INFO, "[INFO]: Client start running");
-    unsigned short clientNumber = getClientNumber(CLIENT_STATE::ALIVE);
-    std::cout << "Goat number " + std::to_string(clientNumber) << std::endl;
-    if (!sendClientMessage({clientNumber, CLIENT_STATE::ALIVE}))
-    {
-        syslog(LOG_ERR, "[ERROR]: Can't send client message");
-        return;
-    }
-    while (isRun)
-    {
-        if (!stopClient())
-        {
-            syslog(LOG_ERR, "[ERROR]: Can't stop client");
-            return;
-        }
-        Message hostMessage;
-        if (!getHostMessage(hostMessage))
-        {
-            syslog(LOG_ERR, "[ERROR]: Can't read host message");
-            return;
-        }
-        clientNumber = getClientNumber(hostMessage.clientState);
-        if (!sendClientMessage({clientNumber, hostMessage.clientState}))
-        {
-            syslog(LOG_ERR, "[ERROR]: Can't send client message");
-            return;
-        }
-        isRun = (hostMessage.clientState != CLIENT_STATE::DEAD);
-    }
-    syslog(LOG_INFO, "[INFO]: Client run end");
-}
-
-bool Client::getHostMessage(Message &msg)
-{
-    return conn->read(msg);
-}
-
-size_t Client::getClientNumber(CLIENT_STATE state)
-{
     using namespace Configuration::Client;
-    std::random_device seeder;
-    std::mt19937 rng(seeder());
-    std::uniform_int_distribution<int> genAliveNum(MIN_NUMBER, MAX_ALIVE_NUMBER);
-    std::uniform_int_distribution<int> genAlmostDeadNum(MIN_NUMBER, MAX_ALMOST_DEATH_NUMBER);
-    size_t res = 0;
-    switch (state)
-    {
-    case CLIENT_STATE::ALIVE:
-        res = genAliveNum(rng);
-        break;
-    case CLIENT_STATE::ALMOST_DEAD:
-        res = genAlmostDeadNum(rng);
-        break;
-    case CLIENT_STATE::DEAD:
-        break;
-    }
-    return res;
-}
+    Message msg;
+    std::random_device rd;
+    std::mt19937 mt(rd());
+    std::uniform_int_distribution<int> dist(MIN_NUMBER, MAX_ALIVE_NUMBER);
+    msg.num = dist(mt);
+    conn->write(&msg, sizeof(msg));
+    sem_post(hostSemaphore);
 
-bool Client::sendClientMessage(const Message &msg)
-{
-    return conn->write(msg);
-}
-
-bool Client::stopClient()
-{
-    if (sem_post(hostSemaphore) == -1)
-    {
-        syslog(LOG_ERR, "[ERROR]: Host semaphore can't continue");
-        return false;
-    }
-    struct timespec ts;
-    clock_gettime(CLOCK_REALTIME, &ts);
-    ts.tv_sec += Configuration::TIME_OUT;
-    if (sem_timedwait(clientSemaphore, &ts) == -1)
-    {
-        std::cout << strerror(errno) << std::endl;
-        if (errno == ETIMEDOUT)
-        {
-            syslog(LOG_ERR, "[ERROR]: Client semaphore timed out");
+    while (true) {
+        sem_wait(clientSemaphore);
+        if (!conn->read(&msg, sizeof(msg))) {
+            syslog(LOG_ERR, "[ERROR]: Can't read host message");
+            sem_post(hostSemaphore);
+            return;
         }
-        else
-        {
-            syslog(LOG_ERR, "[ERROR]: Client semaphore error: %s", strerror(errno));
+        if (msg.num == -1) {
+            syslog(LOG_ERR, "[ERROR]: Host semaphore can't continue");
+            sem_post(hostSemaphore);
+            return;
         }
-        return false;
+        std::random_device rd;
+        std::mt19937 mt(rd());
+        if (msg.state == ALIVE) {
+            std::uniform_int_distribution<int> dist(MIN_NUMBER, MAX_ALIVE_NUMBER);
+            msg.num = dist(mt);
+        } else {
+            std::uniform_int_distribution<int> dist(MIN_NUMBER, MAX_ALMOST_DEATH_NUMBER);
+            msg.num = dist(mt);
+        }
+        if (!conn->write(&msg, sizeof(Message))) {
+            syslog(LOG_ERR, "[ERROR]: Can't send client message");
+            sem_post(hostSemaphore);
+            return;
+        }
+        sem_post(hostSemaphore);
     }
-    return true;
 }
 
+Client::~Client() {
+    conn->close();
+}

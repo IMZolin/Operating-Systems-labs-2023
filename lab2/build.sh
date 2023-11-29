@@ -1,9 +1,10 @@
 #!/bin/bash
 mkdir build
 cd build
+cmake -S ../ -B ./
+make
 
-cmake ..
-make -j2
-mv host_sock host_mq host_fifo ..
-cd ..
+mv host* ../
+
+cd ../
 rm -r build

@@ -3,12 +3,13 @@
 enum CLIENT_STATE
 {
     ALIVE = 0,
-    DEAD,
-    ALMOST_DEAD,
+    DEAD
 };
 
-struct Message
-{
-    unsigned short thrownNumber;
-    CLIENT_STATE clientState;
+struct Message {
+    CLIENT_STATE state;
+    int num;
+
+    Message(CLIENT_STATE st = ALIVE, int num = 0) : state(st), num(num) {
+    }
 };
